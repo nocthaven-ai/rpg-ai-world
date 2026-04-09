@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI RPG World</title>
+<style>
+body { font-family: Arial; max-width: 800px; margin: auto; padding: 20px; }
+#chat { white-space: pre-wrap; border:1px solid #ccc; padding:10px; height:400px; overflow:auto;}
+</style>
+</head>
+<body>
+
+<h1>🌍 AI Adventure RPG</h1>
+
+<div id="chat"></div>
+
+<input id="input" placeholder="What do you do?" style="width:80%">
+<button onclick="send()">Send</button>
+
+<script>
+let messages = [];
+
+async function send() {
+  const input = document.getElementById("input");
+  const chat = document.getElementById("chat");
+
+  messages.push({role:"user", content:input.value});
+  chat.innerHTML += "\n🧑‍🎮: " + input.value + "\n";
+
+  const res = await fetch("YOUR_BACKEND_URL/chat", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ messages })
+  });
+
+  const data = await res.json();
+  messages.push(data);
+
+  chat.innerHTML += "\n🧙: " + data.content + "\n";
+  input.value="";
+}
+</script>
+
+</body>
+</html>
