@@ -84,25 +84,31 @@ async function send() {
   const input = document.getElementById("input");
   const chat = document.getElementById("chat");
 
-  const userText = input.value;
-  input.value = "";
+  const userText = input.value.trim();
+  if (!userText) return;
 
-  memory.push({ role: "user", content: userText });
+  input.value = "";
 
   chat.innerHTML += `<p><b>You:</b> ${userText}</p>`;
 
-  const res = await fetch("https://rpg-ai-world-smoky.vercel.app/api/chat", {
+  // build memory safely
+  let memory = JSON.parse(localStorage.getItem("rpg_memory") || "[]");
+
+  memory.push({ role: "user", content: userText });
+
+  const res = await fetch("https://YOUR-VERCEL-PROJECT.vercel.app/api/chat", {
     method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    messages: memory
-  })
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messages: memory
+    })
   });
 
   const data = await res.json();
-  const reply = data.choices[0].message.content;
+
+  const reply = data.content || data.message || JSON.stringify(data);
 
   memory.push({ role: "assistant", content: reply });
 
