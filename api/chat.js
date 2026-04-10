@@ -125,7 +125,7 @@ export default async function handler(req, res) {
       content:
 `🧍 NPC: ${npc.name}
 
-🌍 WORLD EVENT:
+🌍 WORLD EVENT: 
 ${event}
 
 💬 NPC REACTION:
