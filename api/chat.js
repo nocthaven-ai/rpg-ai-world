@@ -84,7 +84,7 @@ Do not break character.
 `;
 
     const hfResponse = await fetch(
-      "https://router.huggingface.co/hf-inference/protectai/deberta-v3-base-prompt-injection",
+      "https://router.huggingface.co/hf-inference/openai/gpt-oss-20b",
       {
         method: "POST",
         headers: {
