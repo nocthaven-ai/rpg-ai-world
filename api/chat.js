@@ -1,46 +1,40 @@
 export default async function handler(req, res) {
   try {
+    // 🌐 CORS HEADERS (FIX ALL PRE-FLIGHT ERRORS)
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-    const body = typeof req.body === "string"
-      ? JSON.parse(req.body)
-      : req.body;
+    // IMPORTANT: Handle preflight request
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
 
-    const messages = body?.messages || [];
+    // Parse body safely
+    let body = req.body;
 
-    const lastUserMessage =
-      messages.filter(m => m.role === "user").slice(-1)[0]?.content ||
-      "hello";
+    if (typeof body === "string") {
+      body = JSON.parse(body);
+    }
 
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          inputs: lastUserMessage
-        })
-      }
-    );
+    const messages = body?.messages;
 
-    const data = await response.json();
+    if (!messages) {
+      return res.status(400).json({ error: "Missing messages" });
+    }
 
-    let reply =
-      data?.generated_text ||
-      data?.[0]?.generated_text ||
-      "The world is silent...";
+    // MOCK / FREE AI VERSION (safe fallback)
+    const lastMessage =
+      messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
     return res.status(200).json({
       role: "assistant",
-      content: reply
+      content: `🌍 The world reacts to: "${lastMessage}". Factions whisper, Anchor Points shift, and something unseen moves in the background...`
     });
 
   } catch (err) {
     return res.status(500).json({
-      error: "Server error",
+      error: "Server crash",
       message: err.message
     });
   }
