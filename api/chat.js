@@ -160,7 +160,6 @@ const data = await response.json();
   npcReply = `${npc.name} cannot connect to the world right now.`;
 }
 
-        console.log("aiURL", aiURL);
         console.log("prompt", prompt);
 
 
