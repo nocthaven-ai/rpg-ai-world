@@ -116,29 +116,98 @@ export default async function handler(req, res) {
     // 🎮 RESPONSE
     // ============================
     return res.status(200).json({
-      role: "assistant",
-      content:
-`🌍 WORLD RESPONSE
+  role: "assistant",
+  content:
+`🗺️ LOCATION: ${playerLocation}
 
-You said: "${lastUserMessage}"
+🌍 World Event:
+${locationEvent || "The area is calm... for now."}
 
-🌐 World Event: ${event}
+🧍 NPC ENCOUNTER:
+${npc.name} (${npc.faction}) is here.
 
-🧍 NPC RESPONSE:
-${npcDialogue[npcEmotion]}
+"${npcDialogue[npcEmotion]}"
 
-📊 RELATIONSHIP STATUS:
+📊 RELATIONSHIP:
 Trust: ${trust}
 Affection: ${affection}
 Fear: ${fear}
 
-🧠 The NPC now remembers how you make them feel.`
-    });
+🚶 You can travel using:
+"Go to Neon Market"
+"Go to Recovery Gardens"
+"Go to Silent Exchange"
+"Go to Fracture Zone"
 
+🧠 The world reacts differently depending on where you are.`
+});
+
+    
+const map = {
+  "Neon Market": {
+    type: "chaos",
+    npcs: [],
+    eventChance: 0.7
+  },
+  "Recovery Gardens": {
+    type: "healing",
+    npcs: [],
+    eventChance: 0.3
+  },
+  "Silent Exchange": {
+    type: "information",
+    npcs: [],
+    eventChance: 0.5
+  },
+  "Fracture Zone": {
+    type: "danger",
+    npcs: [],
+    eventChance: 0.9
+  }
+};
+
+    let playerLocation = "Neon Market";
+
+    if (lastUserMessage.toLowerCase().includes("go to")) {
+  const target = Object.keys(map).find(loc =>
+    lastUserMessage.toLowerCase().includes(loc.toLowerCase())
+  );
+
+  if (target) {
+    playerLocation = target;
+  }
+}
+
+const location = map[playerLocation];
+
+let locationEvent = "";
+
+if (Math.random() < location.eventChance) {
+  const events = {
+    chaos: ["A street deal goes wrong", "Faction agents clash nearby"],
+    healing: ["NPCs gather peacefully", "Recovery energy stabilizes"],
+    information: ["Secrets are exchanged", "A hidden message appears"],
+    danger: ["An ambush occurs", "Reality distortion detected"]
+  };
+
+  locationEvent =
+    events[location.type][
+      Math.floor(Math.random() * events[location.type].length)
+    ];
+}
+
+const npc = npcs[Math.floor(Math.random() * npcs.length)];
+
+npc.location = playerLocation;
+
+    
   } catch (err) {
     return res.status(500).json({
       error: "Server crash",
       message: err.message
     });
+
+    
+    
   }
 }
