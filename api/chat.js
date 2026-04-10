@@ -1,47 +1,66 @@
-export default async function handler(req, res) {
+const API_URL = "https://https://rpg-ai-world-smoky.vercel.app/api/chat";
+
+function getMemory() {
   try {
-    // SAFETY: ensure body exists
-    const body = typeof req.body === "string"
-      ? JSON.parse(req.body)
-      : req.body || {};
+    return JSON.parse(localStorage.getItem("rpg_memory") || "[]");
+  } catch {
+    return [];
+  }
+}
 
-    const messages = body.messages;
+function saveMemory(memory) {
+  localStorage.setItem("rpg_memory", JSON.stringify(memory));
+}
 
-    if (!messages) {
-      return res.status(400).json({
-        error: "Missing messages array",
-        received: body
-      });
-    }
+function addToChat(role, text) {
+  const chat = document.getElementById("chat");
+  chat.innerHTML += `<p><b>${role}:</b> ${text}</p>`;
+  chat.scrollTop = chat.scrollHeight;
+}
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+async function send() {
+  const input = document.getElementById("input");
+  const userText = input.value.trim();
+
+  if (!userText) return;
+
+  input.value = "";
+
+  addToChat("You", userText);
+
+  // LOAD MEMORY SAFELY
+  let memory = getMemory();
+
+  // ADD USER MESSAGE
+  memory.push({ role: "user", content: userText });
+
+  try {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages
+        messages: memory
       })
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (!data.choices?.[0]) {
-      return res.status(500).json({
-        error: "OpenAI returned invalid response",
-        details: data
-      });
+    if (!res.ok) {
+      addToChat("SYSTEM ERROR", JSON.stringify(data));
+      return;
     }
 
-    res.status(200).json(data.choices[0].message);
+    const reply = data.content || data.message || "No response";
+
+    memory.push({ role: "assistant", content: reply });
+
+    saveMemory(memory);
+
+    addToChat("World", reply);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Server crash",
-      message: err.message
-    });
+    addToChat("NETWORK ERROR", err.message);
   }
 }
