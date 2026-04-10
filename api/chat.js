@@ -84,7 +84,7 @@ Do not break character.
 `;
 
     const hfResponse = await fetch(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct",
+      "https://router.huggingface.co/models/mistralai/Mistral-7B-Instruct",
       {
         method: "POST",
         headers: {
