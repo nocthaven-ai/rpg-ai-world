@@ -1,4 +1,4 @@
-const API_URL = "https://https://rpg-ai-world-smoky.vercel.app/api/chat";
+const API_URL = "https://rpg-ai-world-smoky.vercel.app/api/chat";
 
 function getMemory() {
   try {
