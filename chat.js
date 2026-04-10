@@ -17,39 +17,48 @@ function addToChat(role, text) {
   chat.innerHTML += `<p><b>${role}:</b> ${text}</p>`;
 }
 
+
 async function send() {
   const input = document.getElementById("input");
+  const chat = document.getElementById("chat");
+
   const text = input.value.trim();
   if (!text) return;
 
   input.value = "";
-  addToChat("You", text);
 
-  let memory = getMemory();
+  chat.innerHTML += `<p><b>You:</b> ${text}</p>`;
+
+  // SAFE MEMORY LOAD
+  let memory = JSON.parse(localStorage.getItem("rpg_memory") || "[]");
+
+  // ADD USER MESSAGE
   memory.push({ role: "user", content: text });
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: memory })
-    });
+  console.log("SENDING TO SERVER:", memory); // DEBUG
 
-    const data = await res.json();
+  const res = await fetch("https://YOUR-VERCEL-PROJECT.vercel.app/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messages: memory
+    })
+  });
 
-    if (!res.ok) {
-      addToChat("ERROR", JSON.stringify(data));
-      return;
-    }
+  const data = await res.json();
 
-    const reply = data.content || data.message || "No response";
-
-    memory.push({ role: "assistant", content: reply });
-    saveMemory(memory);
-
-    addToChat("World", reply);
-
-  } catch (err) {
-    addToChat("NETWORK ERROR", err.message);
+  if (!res.ok) {
+    chat.innerHTML += `<p><b>ERROR:</b> ${JSON.stringify(data)}</p>`;
+    return;
   }
+
+  const reply = data.content || data.message || "No response";
+
+  memory.push({ role: "assistant", content: reply });
+
+  localStorage.setItem("rpg_memory", JSON.stringify(memory));
+
+  chat.innerHTML += `<p><b>World:</b> ${reply}</p>`;
 }
