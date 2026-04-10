@@ -1,12 +1,18 @@
-module.exports = async function handler(req, res) {  
+module.exports = async function handler(req, res) {
   try {
+    // =============================
+    // 🌐 CORS (REQUIRED FOR FRONTEND)
+    // =============================
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") return res.status(200).end();
-    if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
+    if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
+    // =============================
+    // 📨 READ BODY SAFELY
+    // =============================
     let body = req.body;
     if (typeof body === "string") body = JSON.parse(body);
 
@@ -18,56 +24,72 @@ module.exports = async function handler(req, res) {
 
     const msg = lastUserMessage.toLowerCase();
 
-    // ============================
-    // 🧍 FETCH NPCs FROM DB
-    // ============================
-    const npcRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs?select=*`, {
-      headers: {
-        apikey: process.env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`
+    // =============================
+    // 🧍 FETCH NPC FROM SUPABASE
+    // =============================
+    const npcRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/npcs?select=*`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`
+        }
       }
-    });
+    );
 
     const npcs = await npcRes.json();
     const npc = npcs[Math.floor(Math.random() * npcs.length)];
 
-    // ============================
+    // =============================
     // ❤️ RELATIONSHIP SYSTEM
-    // ============================
+    // =============================
     let trust = npc.trust ?? 0;
     let affection = npc.affection ?? 0;
     let fear = npc.fear ?? 0;
 
-    if (msg.includes("help")) trust += 5;
-    if (msg.includes("attack")) fear += 15;
+    if (msg.includes("help")) {
+      trust += 5;
+      affection += 3;
+      fear -= 2;
+    }
+
+    if (msg.includes("attack") || msg.includes("kill")) {
+      trust -= 10;
+      fear += 15;
+      affection -= 5;
+    }
+
+    if (msg.includes("secret")) {
+      trust += 8;
+      affection += 5;
+    }
 
     trust = Math.max(-100, Math.min(100, trust));
     affection = Math.max(-100, Math.min(100, affection));
     fear = Math.max(0, Math.min(100, fear));
 
+    // =============================
+    // 😄 MOOD SYSTEM
+    // =============================
     let mood = (trust + affection) - fear;
     mood = Math.max(-100, Math.min(100, mood));
 
-    // ============================
+    // =============================
     // 🌍 WORLD EVENT
-    // ============================
+    // =============================
     const events = [
       "Anchor Points shift slightly",
       "Faction tension rises",
       "A memory echo spreads",
       "Recovery zones stabilize"
     ];
+    const worldEvent = events[Math.floor(Math.random() * events.length)];
 
-    const event = events[Math.floor(Math.random() * events.length)];
-
-    // ============================
-    // 🤖 HUGGING FACE NPC AI
-    // ============================
+    // =============================
+    // 🤖 BUILD AI PROMPT (FLAN-T5 STYLE)
+    // =============================
     const prompt = `
-You are an NPC in a living RPG world.
-
-NPC:
-Name: ${npc.name}
+NPC name: ${npc.name}
 Faction: ${npc.faction}
 Role: ${npc.role}
 Mood: ${mood}
@@ -75,142 +97,103 @@ Trust: ${trust}
 Affection: ${affection}
 Fear: ${fear}
 
-World Event: ${event}
+World event: ${worldEvent}
 
-Player said: "${lastUserMessage}"
+Player message: ${lastUserMessage}
 
-Respond as this NPC in a short immersive dialogue (1–3 sentences).
-Do not break character.
+NPC reply:
 `;
 
-let npcReply = "";
-let aiURL = "";
-
-try {
-  const response = await fetch(
-  "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.HF_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 200,
-        temperature: 0.7
-      }
-    })
-  }
-);
-
-const data = await response.json();
-
-  // 🔥 ALWAYS read as text first (prevents JSON crash)
-  const rawText = await hfResponse.text();
-
-  // ==============================
-  // HANDLE HTTP ERRORS
-  // ==============================
-  if (!hfResponse.ok) {
-    console.log("HF HTTP ERROR:", rawText);
-
-    if (rawText.includes("Not Found")) {
-      npcReply = "NPC connection failed (model not available).";
-    } else if (rawText.includes("loading")) {
-      npcReply = `${npc.name} is thinking... try again.`;
-    } else {
-      npcReply = `${npc.name} cannot respond right now.`;
-    }
-  } 
-  else {
-    // ==============================
-    // SAFE JSON PARSE
-    // ==============================
-    let hfData;
+    // =============================
+    // 🤖 HUGGING FACE (NEW ROUTER API)
+    // =============================
+    let npcReply = "";
 
     try {
-      hfData = JSON.parse(rawText);
-    } catch (err) {
-      console.log("HF NON-JSON RESPONSE:", rawText);
-      npcReply = `${npc.name} stays silent... the signal is unclear.`;
-    }
+      const hfResponse = await fetch(
+        "https://router.huggingface.co/hf-inference/models/google/flan-t5-large",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.HF_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 120,
+              temperature: 0.7
+            }
+          })
+        }
+      );
 
-    // ==============================
-    // EXTRACT RESPONSE SAFELY
-    // ==============================
-    if (!npcReply) {
-      if (Array.isArray(hfData) && hfData[0]?.generated_text) {
-        npcReply = hfData[0].generated_text;
-      } 
-      else if (hfData?.generated_text) {
-        npcReply = hfData.generated_text;
-      } 
-      else if (hfData?.error) {
-        npcReply = `NPC is thinking... (${hfData.error})`;
-      } 
-      else {
-        npcReply = `${npc.name} stares at you silently...`;
+      const rawText = await hfResponse.text();
+
+      if (!hfResponse.ok) {
+        console.log("HF ERROR:", rawText);
+        npcReply = `${npc.name} seems distracted and says nothing.`;
+      } else {
+        try {
+          const hfData = JSON.parse(rawText);
+
+          if (Array.isArray(hfData) && hfData[0]?.generated_text) {
+            npcReply = hfData[0].generated_text.trim();
+          } else {
+            npcReply = `${npc.name} watches you silently.`;
+          }
+        } catch (err) {
+          console.log("HF NON JSON:", rawText);
+          npcReply = `${npc.name} cannot find the words.`;
+        }
       }
+
+    } catch (err) {
+      console.log("HF FETCH FAIL:", err);
+      npcReply = `${npc.name} cannot connect to the world right now.`;
     }
-  }
 
-} catch (err) {
-  console.log("HF FETCH CRASH:", err);
-  npcReply = `${npc.name} cannot connect to the world right now.`;
-}
+    // =============================
+    // 💾 SAVE NPC BACK TO DATABASE
+    // =============================
+    await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/npcs?id=eq.${npc.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: process.env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          trust,
+          affection,
+          fear,
+          mood
+        })
+      }
+    );
 
-        console.log("prompt", prompt);
-
-
-    const hfData = await hfResponse.json();
-
-    console.log("HF RAW RESPONSE:", hfData);
-    
-
-    // ============================
-    // 💾 SAVE NPC STATE
-    // ============================
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs?id=eq.${npc.id}`, {
-      method: "PATCH",
-      headers: {
-        apikey: process.env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        trust,
-        affection,
-        fear,
-        mood
-      })
-    });
-
-    // ============================
-    // 🎮 RESPONSE
-    // ============================
+    // =============================
+    // 🎮 FINAL RESPONSE
+    // =============================
     return res.status(200).json({
       role: "assistant",
       content:
 `🧍 ${npc.name} says:
-
 "${npcReply}"
 
-🌍 World Event: ${event}
+🌍 World Event: ${worldEvent}
 
-📊 Mood: ${mood}
-Trust: ${trust}
-Affection: ${affection}
-Fear: ${fear}
-
-🧠 This response is AI-generated and emotionally adaptive.`
+📊 Mood: ${mood} | Trust: ${trust} | Affection: ${affection} | Fear: ${fear}
+🏛️ Faction: ${npc.faction} | Role: ${npc.role}`
     });
 
   } catch (err) {
+    console.error("SERVER CRASH:", err);
     return res.status(500).json({
       error: "Server crash",
       message: err.message
     });
   }
-}
+};
