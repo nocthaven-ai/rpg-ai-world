@@ -23,19 +23,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing messages" });
     }
 
-    // MOCK / FREE AI VERSION (safe fallback)
-    const lastMessage =
-      messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
+   const lastMessage =
+  messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
-    return res.status(200).json({
-      role: "assistant",
-      content: `🌍 The world reacts to: "${lastMessage}". Factions whisper, Anchor Points shift, and something unseen moves in the background...`
-    });
+const worldStates = [
+  "Recovery Points are stabilizing emotional flux",
+  "Neon Market factions are competing for influence",
+  "Anchor Points are shifting between realities",
+  "A hidden faction is recruiting in the shadows",
+  "Memory echoes are becoming unstable"
+];
 
-  } catch (err) {
-    return res.status(500).json({
-      error: "Server crash",
-      message: err.message
-    });
-  }
+const randomState = worldStates[Math.floor(Math.random() * worldStates.length)];
+
+return res.status(200).json({
+  role: "assistant",
+  content: `🌍 WORLD UPDATE:\n\nYou said: "${lastMessage}"\n\n${randomState}.\n\nNPCs are reacting. Factions are adjusting strategy. Something new may emerge soon...`
+});
+
+    
 }
