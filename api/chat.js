@@ -84,57 +84,80 @@ Do not break character.
 `;
 
 const aiURL ="https://router.huggingface.co/hf-inference/HuggingFaceH4/zephyr-7b-beta"
-   const hfResponse = await fetch(
-  aiURL,
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.HF_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 120,
-        temperature: 0.7,
-        return_full_text: false
-      }
-    })
-  }
-);
-
-// ===============================
-// 🛑 HANDLE NON-JSON RESPONSES
-// ===============================
-const text = await hfResponse.text();
-
 let npcReply = "";
 
 try {
-  const hfData = JSON.parse(text);
+  const hfResponse = await fetch(
+    aiURL,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 120,
+          temperature: 0.7,
+          return_full_text: false
+        }
+      })
+    }
+  );
 
-  if (Array.isArray(hfData) && hfData[0]?.generated_text) {
-    npcReply = hfData[0].generated_text;
-  } 
-  else if (hfData?.generated_text) {
-    npcReply = hfData.generated_text;
-  } 
-  else if (hfData?.error) {
-    npcReply = `NPC is thinking... (${hfData.error})`;
+  // 🔥 ALWAYS read as text first (prevents JSON crash)
+  const rawText = await hfResponse.text();
+
+  // ==============================
+  // HANDLE HTTP ERRORS
+  // ==============================
+  if (!hfResponse.ok) {
+    console.log("HF HTTP ERROR:", rawText);
+
+    if (rawText.includes("Not Found")) {
+      npcReply = "NPC connection failed (model not available).";
+    } else if (rawText.includes("loading")) {
+      npcReply = `${npc.name} is thinking... try again.`;
+    } else {
+      npcReply = `${npc.name} cannot respond right now.`;
+    }
   } 
   else {
-    npcReply = `${npc.name} stares at you silently...`;
+    // ==============================
+    // SAFE JSON PARSE
+    // ==============================
+    let hfData;
+
+    try {
+      hfData = JSON.parse(rawText);
+    } catch (err) {
+      console.log("HF NON-JSON RESPONSE:", rawText);
+      npcReply = `${npc.name} stays silent... the signal is unclear.`;
+    }
+
+    // ==============================
+    // EXTRACT RESPONSE SAFELY
+    // ==============================
+    if (!npcReply) {
+      if (Array.isArray(hfData) && hfData[0]?.generated_text) {
+        npcReply = hfData[0].generated_text;
+      } 
+      else if (hfData?.generated_text) {
+        npcReply = hfData.generated_text;
+      } 
+      else if (hfData?.error) {
+        npcReply = `NPC is thinking... (${hfData.error})`;
+      } 
+      else {
+        npcReply = `${npc.name} stares at you silently...`;
+      }
+    }
   }
 
 } catch (err) {
-  // 🔥 THIS PREVENTS YOUR CRASH
-  console.log("HF RAW TEXT RESPONSE:", text);
-
-  if (text.includes("Not Found")) {
-    npcReply = "NPC connection failed (model not found)";
-  } else {
-    npcReply = `${npc.name} is silent... the signal is unclear.`;
-  }
+  console.log("HF FETCH CRASH:", err);
+  npcReply = `${npc.name} cannot connect to the world right now.`;
 }
 
         console.log("aiURL", aiURL);
