@@ -83,28 +83,28 @@ Respond as this NPC in a short immersive dialogue (1–3 sentences).
 Do not break character.
 `;
 
-const aiURL ="https://router.huggingface.co/hf-inference/HuggingFaceH4/zephyr-7b-beta"
 let npcReply = "";
 
 try {
-  const hfResponse = await fetch(
-    aiURL,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 120,
-          temperature: 0.7,
-          return_full_text: false
-        }
-      })
-    }
-  );
+  const response = await fetch(
+  "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.HF_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 200,
+        temperature: 0.7
+      }
+    })
+  }
+);
+
+const data = await response.json();
 
   // 🔥 ALWAYS read as text first (prevents JSON crash)
   const rawText = await hfResponse.text();
