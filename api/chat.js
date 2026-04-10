@@ -99,6 +99,8 @@ Do not break character.
 
     const hfData = await hfResponse.json();
 
+    console.log("HF RAW RESPONSE:", hfData);
+    
     let npcReply =
       hfData?.[0]?.generated_text ||
       hfData?.generated_text ||
