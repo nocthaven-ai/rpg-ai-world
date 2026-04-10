@@ -168,10 +168,6 @@ try {
 
     console.log("HF RAW RESPONSE:", hfData);
     
-    let npcReply =
-      hfData?.[0]?.generated_text ||
-      hfData?.generated_text ||
-      `${npc.name} stares at you silently...`;
 
     // ============================
     // 💾 SAVE NPC STATE
