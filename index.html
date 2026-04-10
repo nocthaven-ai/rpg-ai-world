@@ -95,14 +95,10 @@ async function send() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer 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"
     },
     body: JSON.stringify({
       model: "gpt-5.2",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...memory
-      ]
+      messages: memory
     })
   });
 
