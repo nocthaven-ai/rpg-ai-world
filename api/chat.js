@@ -1,6 +1,5 @@
 export default async function handler(req, res) {
   try {
-    // ---------------- CORS ----------------
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -8,7 +7,6 @@ export default async function handler(req, res) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
-    // ---------------- BODY ----------------
     let body = req.body;
     if (typeof body === "string") body = JSON.parse(body);
 
@@ -40,55 +38,74 @@ export default async function handler(req, res) {
     let affection = npc.affection ?? 0;
     let fear = npc.fear ?? 0;
 
-    if (msg.includes("help")) {
-      trust += 5;
-      affection += 3;
-      fear -= 2;
-    }
+    if (msg.includes("help")) trust += 5;
+    if (msg.includes("attack")) fear += 15;
 
-    if (msg.includes("attack") || msg.includes("kill")) {
-      trust -= 10;
-      fear += 15;
-      affection -= 5;
-    }
-
-    if (msg.includes("secret")) {
-      trust += 8;
-      affection += 5;
-    }
-
-    // clamp
     trust = Math.max(-100, Math.min(100, trust));
     affection = Math.max(-100, Math.min(100, affection));
     fear = Math.max(0, Math.min(100, fear));
 
-    // ============================
-    // 🧠 MOOD SYSTEM (NEW)
-    // ============================
     let mood = (trust + affection) - fear;
     mood = Math.max(-100, Math.min(100, mood));
 
     // ============================
-    // 🎭 MOOD STATES
+    // 🌍 WORLD EVENT
     // ============================
-    let state = "neutral";
+    const events = [
+      "Anchor Points shift slightly",
+      "Faction tension rises",
+      "A memory echo spreads",
+      "Recovery zones stabilize"
+    ];
 
-    if (mood > 60) state = "ecstatic";
-    else if (mood > 20) state = "happy";
-    else if (mood > -20) state = "neutral";
-    else if (mood > -60) state = "uneasy";
-    else state = "hostile";
-
-    const dialogue = {
-      ecstatic: `${npc.name}: "I feel amazing around you!"`,
-      happy: `${npc.name}: "It's good seeing you."`,
-      neutral: `${npc.name}: "I’m observing you."`,
-      uneasy: `${npc.name}: "Something feels off..."`,
-      hostile: `${npc.name}: "Stay away from me."`
-    };
+    const event = events[Math.floor(Math.random() * events.length)];
 
     // ============================
-    // 💾 SAVE BACK TO DATABASE
+    // 🤖 HUGGING FACE NPC AI
+    // ============================
+    const prompt = `
+You are an NPC in a living RPG world.
+
+NPC:
+Name: ${npc.name}
+Faction: ${npc.faction}
+Role: ${npc.role}
+Mood: ${mood}
+Trust: ${trust}
+Affection: ${affection}
+Fear: ${fear}
+
+World Event: ${event}
+
+Player said: "${lastUserMessage}"
+
+Respond as this NPC in a short immersive dialogue (1–3 sentences).
+Do not break character.
+`;
+
+    const hfResponse = await fetch(
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HF_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: prompt
+        })
+      }
+    );
+
+    const hfData = await hfResponse.json();
+
+    let npcReply =
+      hfData?.[0]?.generated_text ||
+      hfData?.generated_text ||
+      `${npc.name} stares at you silently...`;
+
+    // ============================
+    // 💾 SAVE NPC STATE
     // ============================
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs?id=eq.${npc.id}`, {
       method: "PATCH",
@@ -106,41 +123,23 @@ export default async function handler(req, res) {
     });
 
     // ============================
-    // 🌍 WORLD EVENT
-    // ============================
-    const events = [
-      "Anchor Points stabilize briefly",
-      "Faction influence shifts quietly",
-      "A memory echo passes through the world",
-      "Recovery zones pulse with energy"
-    ];
-
-    const event = events[Math.floor(Math.random() * events.length)];
-
-    // ============================
     // 🎮 RESPONSE
     // ============================
     return res.status(200).json({
       role: "assistant",
       content:
-`🧍 NPC: ${npc.name}
+`🧍 ${npc.name} says:
 
-🌍 WORLD EVENT: 
-${event}
+"${npcReply}"
 
-💬 NPC REACTION:
-${dialogue[state]}
+🌍 World Event: ${event}
 
-📊 RELATIONSHIP:
+📊 Mood: ${mood}
 Trust: ${trust}
 Affection: ${affection}
 Fear: ${fear}
-Mood: ${mood}
 
-🏛️ Faction: ${npc.faction}
-🎭 Role: ${npc.role}
-
-🧠 Mood now determines emotional behavior in real time.`
+🧠 This response is AI-generated and emotionally adaptive.`
     });
 
   } catch (err) {
