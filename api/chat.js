@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
     // ============================
-    // 🌍 GET NPCs FROM SUPABASE
+    // 🌍 FETCH NPC FROM SUPABASE
     // ============================
     const npcRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs`, {
       headers: {
@@ -27,48 +27,94 @@ export default async function handler(req, res) {
       }
     });
 
-    let npcs = await npcRes.json();
-
-    // pick random NPC
+    const npcs = await npcRes.json();
     const npc = npcs[Math.floor(Math.random() * npcs.length)];
 
-    // update mood
-    let mood = npc.mood + (Math.random() * 10 - 5);
-    mood = Math.max(0, Math.min(100, mood));
+    // ============================
+    // 🧠 RELATIONSHIP UPDATE LOGIC
+    // ============================
+    let trust = npc.trust ?? 0;
+    let affection = npc.affection ?? 0;
+    let fear = npc.fear ?? 0;
 
-    // update NPC memory
-    let memory = [];
-    try {
-      memory = JSON.parse(npc.memory || "[]");
-    } catch {}
+    const msg = lastUserMessage.toLowerCase();
 
-    memory.push(lastUserMessage);
+    // SIMPLE BEHAVIOR ANALYSIS (NO AI REQUIRED)
+    if (msg.includes("help") || msg.includes("please")) {
+      trust += 5;
+      affection += 3;
+      fear -= 2;
+    }
 
-    // save back to Supabase
+    if (msg.includes("attack") || msg.includes("kill") || msg.includes("threat")) {
+      trust -= 10;
+      fear += 15;
+      affection -= 5;
+    }
+
+    if (msg.includes("secret") || msg.includes("tell me")) {
+      trust += 8;
+      affection += 5;
+    }
+
+    if (msg.includes("why") || msg.includes("what")) {
+      fear += 1;
+    }
+
+    // clamp values
+    trust = Math.max(-100, Math.min(100, trust));
+    affection = Math.max(-100, Math.min(100, affection));
+    fear = Math.max(0, Math.min(100, fear));
+
+    // ============================
+    // 💬 NPC RESPONSE STATE
+    // ============================
+    let npcEmotion = "neutral";
+
+    if (trust > 50) npcEmotion = "trusting";
+    if (affection > 50) npcEmotion = "friendly";
+    if (fear > 50) npcEmotion = "afraid";
+    if (trust < -50) npcEmotion = "hostile";
+
+    const npcDialogue = {
+      neutral: `${npc.name}: "I’m watching you carefully."`,
+      trusting: `${npc.name}: "I think I can trust you... for now."`,
+      friendly: `${npc.name}: "It’s good to see you again."`,
+      afraid: `${npc.name}: "Please… don’t hurt me."`,
+      hostile: `${npc.name}: "Stay away from me."`
+    };
+
+    // ============================
+    // 🌍 WORLD EVENT
+    // ============================
+    const events = [
+      "Anchor Points realign subtly",
+      "Faction influence shifts in the background",
+      "A memory echo spreads through the system"
+    ];
+
+    const event = events[Math.floor(Math.random() * events.length)];
+
+    // ============================
+    // 💾 SAVE BACK TO DATABASE
+    // ============================
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs?id=eq.${npc.id}`, {
       method: "PATCH",
       headers: {
         apikey: process.env.SUPABASE_ANON_KEY,
         Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        mood,
-        memory: JSON.stringify(memory)
+        trust,
+        affection,
+        fear
       })
     });
 
-    const worldEvents = [
-      "Anchor Points shift across districts",
-      "Faction tensions increase",
-      "A hidden NPC remembers something important",
-      "Recovery Points stabilize emotional flux"
-    ];
-
-    const event =
-      worldEvents[Math.floor(Math.random() * worldEvents.length)];
-
+    // ============================
+    // 🎮 RESPONSE
+    // ============================
     return res.status(200).json({
       role: "assistant",
       content:
@@ -78,15 +124,15 @@ You said: "${lastUserMessage}"
 
 🌐 World Event: ${event}
 
-🧍 NPC ENCOUNTER:
-${npc.name} (${npc.faction}) says:
-"I remember what you said... it changes things."
+🧍 NPC RESPONSE:
+${npcDialogue[npcEmotion]}
 
-👤 NPC STATE:
-Mood: ${Math.round(mood)}/100
-Memory Count: ${memory.length}
+📊 RELATIONSHIP STATUS:
+Trust: ${trust}
+Affection: ${affection}
+Fear: ${fear}
 
-🧠 This NPC now remembers you permanently.`
+🧠 The NPC now remembers how you make them feel.`
     });
 
   } catch (err) {
