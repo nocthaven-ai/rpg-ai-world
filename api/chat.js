@@ -1,9 +1,17 @@
 export default async function handler(req, res) {
   try {
-    const { messages } = req.body;
+    // SAFETY: ensure body exists
+    const body = typeof req.body === "string"
+      ? JSON.parse(req.body)
+      : req.body || {};
+
+    const messages = body.messages;
 
     if (!messages) {
-      return res.status(400).json({ error: "No messages provided" });
+      return res.status(400).json({
+        error: "Missing messages array",
+        received: body
+      });
     }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -14,16 +22,15 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: messages
+        messages
       })
     });
 
     const data = await response.json();
 
-    if (!data.choices || !data.choices[0]) {
-      console.log("OpenAI response error:", data);
+    if (!data.choices?.[0]) {
       return res.status(500).json({
-        error: "Invalid OpenAI response",
+        error: "OpenAI returned invalid response",
         details: data
       });
     }
@@ -31,9 +38,9 @@ export default async function handler(req, res) {
     res.status(200).json(data.choices[0].message);
 
   } catch (err) {
-    console.error("Server error:", err);
+    console.error(err);
     res.status(500).json({
-      error: "Server crashed",
+      error: "Server crash",
       message: err.message
     });
   }
