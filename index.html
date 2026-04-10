@@ -93,13 +93,12 @@ async function send() {
 
   const res = await fetch("https://rpg-ai-world-smoky.vercel.app/api/chat", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-5.2",
-      messages: memory
-    })
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    messages: memory
+  })
   });
 
   const data = await res.json();
