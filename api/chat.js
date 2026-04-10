@@ -83,8 +83,8 @@ Respond as this NPC in a short immersive dialogue (1–3 sentences).
 Do not break character.
 `;
 
-    const hfResponse = await fetch(
-      "https://router.huggingface.co/hf-inference/openai/gpt-oss-20b",
+const aiURL ="https://router.huggingface.co/hf-inference/openai/gpt-oss-20b"
+    const hfResponse = await fetch(aiURL,
       {
         method: "POST",
         headers: {
@@ -96,6 +96,10 @@ Do not break character.
         })
       }
     );
+
+        console.log("aiURL", aiURL);
+        console.log("prompt", prompt);
+
 
     const hfData = await hfResponse.json();
 
