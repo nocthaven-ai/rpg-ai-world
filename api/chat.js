@@ -84,6 +84,7 @@ Do not break character.
 `;
 
 let npcReply = "";
+let aiURL = "";
 
 try {
   const response = await fetch(
