@@ -1,42 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>AI RPG World</title>
+<meta charset="UTF-8">
+<title>Fractured Continuum RPG</title>
+
 <style>
-body { font-family: Arial; max-width: 800px; margin: auto; padding: 20px; }
-#chat { white-space: pre-wrap; border:1px solid #ccc; padding:10px; height:400px; overflow:auto;}
+body {
+  font-family: Arial;
+  background: #0b0f1a;
+  color: #e6e6e6;
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+
+#chat {
+  border: 1px solid #333;
+  padding: 10px;
+  height: 450px;
+  overflow-y: auto;
+  background: #111827;
+}
+
+input {
+  width: 80%;
+  padding: 10px;
+}
+
+button {
+  padding: 10px;
+}
 </style>
 </head>
+
 <body>
 
-<h1>🌍 AI Adventure RPG</h1>
+<h1>🌍 Fractured Continuum RPG</h1>
 
 <div id="chat"></div>
 
-<input id="input" placeholder="What do you do?" style="width:80%">
+<br>
+
+<input id="input" placeholder="What do you do?" />
 <button onclick="send()">Send</button>
 
 <script>
-let messages = [];
+let memory = JSON.parse(localStorage.getItem("rpg_memory") || "[]");
+
+const SYSTEM_PROMPT = `
+You are the Game Master of a living RPG world called "The Fractured Continuum".
+
+WORLD RULES:
+- The world has Modern, Arcane, and Future layers overlapping.
+- Anchor Points are social hubs where NPC factions exist.
+- NPCs belong to factions and act autonomously.
+- Events must create 3–5 chained consequences.
+- NPCs are emotionally realistic and remember past interactions.
+- The world continues evolving even off-screen.
+
+ANCHOR POINTS:
+- Recovery Points (emotional stabilization zones)
+- Meeting Points (social + political hubs)
+
+NPC FACTIONS:
+- Exist inside Anchor Points
+- Compete for influence
+- Recruit and betray members
+
+EVENT CHAINING RULE:
+Every event must cause ripple effects across world, factions, and emotions.
+
+ROMANCE EXISTS BUT IS SUBTLE AND EMERGENT.
+
+Always respond in this format:
+1. STORY
+2. NPC DIALOGUE
+3. WORLD CHANGES
+4. EVENT CHAIN EFFECTS
+5. PLAYER CHOICES (3–5 options)
+`;
 
 async function send() {
   const input = document.getElementById("input");
   const chat = document.getElementById("chat");
 
-  messages.push({role:"user", content:input.value});
-  chat.innerHTML += "\n🧑‍🎮: " + input.value + "\n";
+  const userText = input.value;
+  input.value = "";
 
-  const res = await fetch("YOUR_BACKEND_URL/chat", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ messages })
+  memory.push({ role: "user", content: userText });
+
+  chat.innerHTML += `<p><b>You:</b> ${userText}</p>`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer YOUR_OPENAI_API_KEY"
+    },
+    body: JSON.stringify({
+      model: "gpt-5.2",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...memory
+      ]
+    })
   });
 
   const data = await res.json();
-  messages.push(data);
+  const reply = data.choices[0].message.content;
 
-  chat.innerHTML += "\n🧙: " + data.content + "\n";
-  input.value="";
+  memory.push({ role: "assistant", content: reply });
+
+  localStorage.setItem("rpg_memory", JSON.stringify(memory));
+
+  chat.innerHTML += `<p><b>World:</b> ${reply}</p>`;
+  chat.scrollTop = chat.scrollHeight;
 }
 </script>
 
