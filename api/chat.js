@@ -40,6 +40,6 @@ return res.status(200).json({
   role: "assistant",
   content: `🌍 WORLD UPDATE:\n\nYou said: "${lastMessage}"\n\n${randomState}.\n\nNPCs are reacting. Factions are adjusting strategy. Something new may emerge soon...`
 });
-
+  }
     
 }
