@@ -37,7 +37,7 @@ async function send() {
 
   console.log("SENDING TO SERVER:", memory); // DEBUG
 
-  const res = await fetch("https://YOUR-VERCEL-PROJECT.vercel.app/api/chat", {
+  const res = await fetch("https://rpg-ai-world-smoky.vercel.app/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
