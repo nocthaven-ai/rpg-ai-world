@@ -1,81 +1,74 @@
-let npcs = [
-  {
-    name: "Elira Voss",
-    faction: "Stillwater Circle",
-    mood: 60,
-    memory: [],
-    role: "Mediator"
-  },
-  {
-    name: "Kael Dray",
-    faction: "Neon Cartographers",
-    mood: 50,
-    memory: [],
-    role: "Scout"
-  },
-  {
-    name: "Morrow Sane",
-    faction: "Silent Exchange",
-    mood: 40,
-    memory: [],
-    role: "Information Broker"
-  }
-];
-
 export default async function handler(req, res) {
   try {
-    // ================= CORS =================
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") return res.status(200).end();
-    if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
-    // ================= BODY =================
     let body = req.body;
     if (typeof body === "string") body = JSON.parse(body);
 
     const messages = body?.messages;
-    if (!messages) return res.status(400).json({ error: "Missing messages" });
+    if (!messages) {
+      return res.status(400).json({ error: "Missing messages" });
+    }
 
     const lastUserMessage =
       messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
-    // ================= WORLD SIM =================
-    const worldEvents = [
-      "Anchor Points destabilize briefly",
-      "Faction tensions rise in the Neon Market",
-      "Recovery Points emit emotional resonance spikes",
-      "A hidden memory fragment surfaces in the system",
-      "Silent Exchange spreads a new rumor"
-    ];
+    // ============================
+    // 🌍 GET NPCs FROM SUPABASE
+    // ============================
+    const npcRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs`, {
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`
+      }
+    });
 
-    const event = worldEvents[Math.floor(Math.random() * worldEvents.length)];
+    let npcs = await npcRes.json();
 
-    // ================= NPC INTERACTION =================
+    // pick random NPC
     const npc = npcs[Math.floor(Math.random() * npcs.length)];
 
-    // NPC reacts to player message
-    npc.memory.push(lastUserMessage);
-    npc.mood += Math.random() * 10 - 5; // mood shift
+    // update mood
+    let mood = npc.mood + (Math.random() * 10 - 5);
+    mood = Math.max(0, Math.min(100, mood));
 
-    if (npc.mood > 100) npc.mood = 100;
-    if (npc.mood < 0) npc.mood = 0;
+    // update NPC memory
+    let memory = [];
+    try {
+      memory = JSON.parse(npc.memory || "[]");
+    } catch {}
 
-    const npcDialogueTemplates = [
-      `${npc.name}: "I heard what you said about '${lastUserMessage}'. Be careful in these parts."`,
-      `${npc.name}: "The ${npc.faction} is watching you closely now."`,
-      `${npc.name}: "This world changes faster than people realize..."`,
-      `${npc.name}: "You shouldn't be asking questions like that..."`,
-      `${npc.name}: "Interesting... I might remember this."`
+    memory.push(lastUserMessage);
+
+    // save back to Supabase
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/npcs?id=eq.${npc.id}`, {
+      method: "PATCH",
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        mood,
+        memory: JSON.stringify(memory)
+      })
+    });
+
+    const worldEvents = [
+      "Anchor Points shift across districts",
+      "Faction tensions increase",
+      "A hidden NPC remembers something important",
+      "Recovery Points stabilize emotional flux"
     ];
 
-    const npcLine = npcDialogueTemplates[
-      Math.floor(Math.random() * npcDialogueTemplates.length)
-    ];
+    const event =
+      worldEvents[Math.floor(Math.random() * worldEvents.length)];
 
-    // ================= RESPONSE =================
     return res.status(200).json({
       role: "assistant",
       content:
@@ -86,15 +79,14 @@ You said: "${lastUserMessage}"
 🌐 World Event: ${event}
 
 🧍 NPC ENCOUNTER:
-${npcLine}
+${npc.name} (${npc.faction}) says:
+"I remember what you said... it changes things."
 
-👤 NPC STATUS:
-Name: ${npc.name}
-Faction: ${npc.faction}
-Mood: ${Math.round(npc.mood)}/100
-Role: ${npc.role}
+👤 NPC STATE:
+Mood: ${Math.round(mood)}/100
+Memory Count: ${memory.length}
 
-🧠 The world remembers your presence.`
+🧠 This NPC now remembers you permanently.`
     });
 
   } catch (err) {
