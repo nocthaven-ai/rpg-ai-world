@@ -91,7 +91,7 @@ async function send() {
 
   chat.innerHTML += `<p><b>You:</b> ${userText}</p>`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch("https://nocthaven-ais-projects.vercel.app/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
